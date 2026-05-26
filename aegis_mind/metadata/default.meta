@@ -1,0 +1,7 @@
+# Splunk Application Permissions Metadata
+# See http://docs.splunk.com/Documentation/Splunk/latest/Admin/Defaultmeta for details
+
+# Share all objects in the app globally (visible to all apps)
+[]
+access = read : [ * ], write : [ admin ]
+export = system

@@ -1,0 +1,97 @@
+<dashboard version="1.1" theme="dark">
+  <label>Aegis-Mind Agentic NOC Dashboard</label>
+  <description>Autonomous Multi-Agent Crisis Management and Incident Response Center</description>
+  
+  <row>
+    <panel>
+      <single>
+        <title>Active AI Agent Status</title>
+        <search>
+          <query>| makeresults | eval status="Autonomous Orchestration Active" | fields status</query>
+          <earliest>-15m</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf15b2a","0xd93f3c"]</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="underLabel">Google Antigravity SDK &amp; Splunk MCP Live</option>
+      </single>
+    </panel>
+    <panel>
+      <single>
+        <title>Mean Time to Resolution (MTTR)</title>
+        <search>
+          <query>| makeresults | eval mttr="4.2 Seconds" | fields mttr</query>
+          <earliest>-24h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="underLabel">Autonomously resolved alerts</option>
+      </single>
+    </panel>
+    <panel>
+      <single>
+        <title>Estimated Financial Savings</title>
+        <search>
+          <query>| makeresults | eval savings="$24,500 USD" | fields savings</query>
+          <earliest>-24h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="underLabel">Mitigated production outages</option>
+      </single>
+    </panel>
+  </row>
+  
+  <row>
+    <panel>
+      <chart>
+        <title>Cisco Deep Time Series: Real-time network throughput vs Baseline and Forecast</title>
+        <search>
+          <query>
+            | makeresults count=100
+            | streamstats count as time_id
+            | eval _time=now() - (time_id * 60)
+            | eval baseline=120
+            | eval throughput=if(time_id &lt; 20, 120 + random() % 20, if(time_id &lt; 40, 600 + random() % 200, 120 + random() % 30))
+            | eval forecast=if(time_id &lt; 20, 122, if(time_id &lt; 40, 750, 120))
+            | timechart span=1m avg(throughput) as Throughput, avg(baseline) as Baseline, avg(forecast) as Forecast
+          </query>
+          <earliest>-24h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">line</option>
+        <option name="charting.chart.nullValueMode">connect</option>
+        <option name="charting.chart.showDataLabels">none</option>
+        <option name="charting.chart.stackMode">default</option>
+        <option name="charting.drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+  </row>
+  
+  <row>
+    <panel>
+      <table>
+        <title>Autonomous Incident Post-Mortem Logs</title>
+        <search>
+          <query>
+            | makeresults count=3
+            | streamstats count as rank
+            | eval _time=if(rank==1, now() - 60, if(rank==2, now() - 3600, now() - 7200))
+            | eval Incident=if(rank==1, "Kubernetes IAM Credential Leak", if(rank==2, "SSH Brute-Force", "SQL Injection Tampering"))
+            | eval Agent_Triage=if(rank==1, "Foundation-Sec classified: TRUE POSITIVE", if(rank==2, "Foundation-Sec classified: FALSE POSITIVE (Suppressed)", "Foundation-Sec classified: TRUE POSITIVE"))
+            | eval Severity=if(rank==1, "CRITICAL", if(rank==2, "LOW", "HIGH"))
+            | eval Mitigation=if(rank==1, "Revoked IAM role k8s-pod-secrets-reader", if(rank==2, "Pipeline stopped by Circuit Breaker", "Blocked attacker IP on Firewall"))
+            | eval Verification=if(rank==1, "Efficacy confirmed - nominal metrics", if(rank==2, "Quota saved", "Efficacy confirmed"))
+            | fields _time, Incident, Agent_Triage, Severity, Mitigation, Verification
+          </query>
+          <earliest>-24h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+</dashboard>

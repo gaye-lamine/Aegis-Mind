@@ -1,0 +1,35 @@
+{
+  "observability": {
+    "cpu_usage_percent": {
+      "warning": 75.0,
+      "critical": 90.0,
+      "historical_baseline_avg": 42.5
+    },
+    "memory_usage_percent": {
+      "warning": 80.0,
+      "critical": 95.0,
+      "historical_baseline_avg": 55.0
+    },
+    "network_throughput_mbps": {
+      "warning": 450.0,
+      "critical": 800.0,
+      "historical_baseline_avg": 120.0
+    },
+    "error_rate_percent": {
+      "warning": 2.0,
+      "critical": 5.0,
+      "historical_baseline_avg": 0.05
+    }
+  },
+  "security": {
+    "failed_auth_attempts_per_min": {
+      "warning": 10,
+      "critical": 30,
+      "historical_baseline_avg": 1.2
+    },
+    "api_calls_quota_limit": {
+      "splunk_mcp_max_requests_per_incident": 50,
+      "circuit_breaker_confidence_threshold": 0.85
+    }
+  }
+}
