@@ -267,7 +267,7 @@ class SplunkMCPClient:
                     "log_level": "ERROR",
                     "component": "DatabaseConnector",
                     "msg": "Connection timeout reached while attempting to connect to PostgreSQL at db-srv-01.local:5432",
-                    "ai_summary": "🤖 [AITK GenAI gpt-oss-120b] L'analyse du log montre un timeout de connexion avec la base de données PostgreSQL. Cause probable : le serveur de base de données est surchargé ou les règles de pare-feu bloquent le port 5432. Action recommandée : Vérifier le statut de postgresql sur db-srv-01 et tester le ping du port 5432."
+                    "ai_summary": "🤖 [AITK GenAI gpt-oss-120b] Log analysis shows a connection timeout with the PostgreSQL database. Probable cause: the database server is overloaded or firewall rules block port 5432. Recommended action: Check postgresql status on db-srv-01 and test ping on port 5432."
                 }
             ]
         

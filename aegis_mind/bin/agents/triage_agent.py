@@ -1,95 +1,98 @@
 import logging
 import json
 from google.antigravity import Agent, LocalAgentConfig
-from mcp_client import SplunkMCPClient
-from utils.spl_generator import SplunkAIAssistant
+from src.mcp_client import SplunkMCPClient
+from src.utils.spl_generator import SplunkAIAssistant
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("AegisMind.TriageAgent")
 
 class TriageAgent:
-    """
-    🕵️‍♂️ Agent d'Investigation Cyber (The Triage Lead).
-    
-    Orchestré sous le Google Antigravity SDK.
-    Modèle d'IA : Splunk Foundation-Sec-1.1-8B-Instruct (pour l'analyse de logs cyber).
-    
-    Rôle :
-    1. Reçoit une notification d'incident brute (AI Custom Alert).
-    2. Utilise le client Splunk MCP pour extraire les logs associés.
-    3. Identifie le vecteur d'attaque et extrait les adresses IP/utilisateurs compromis.
-    4. Évalue la légitimité (False Positive / True Positive).
+    """Cyber Investigation Agent (The Triage Lead).
+
+    Orchestrated via the Google Antigravity SDK.
+    AI Model: Splunk Foundation-Sec-1.1-8B-Instruct (for cyber log analysis).
+
+    Responsibilities:
+        1. Receives a raw incident notification (AI Custom Alert).
+        2. Uses the Splunk MCP client to extract associated logs.
+        3. Identifies the attack vector and extracts compromised IPs/users.
+        4. Evaluates legitimacy (False Positive / True Positive).
     """
 
     def __init__(self, mcp_client: SplunkMCPClient):
+        """Initialize the Triage Agent.
+
+        Args:
+            mcp_client: Splunk MCP client used to query log data.
+        """
         self.mcp_client = mcp_client
         self.model_name = "Foundation-Sec-1.1-8B-Instruct"
         
-        # Configuration de l'agent via le SDK Google Antigravity
+        # Configure the agent via the Google Antigravity SDK
         self.agent_config = LocalAgentConfig(
-            model="gemini-3.5-flash", # Fallback Gemini pour l'orchestration interne
+            model="gemini-3.5-flash",  # Gemini fallback for internal orchestration
             system_instructions=(
-                "Vous êtes l'Agent d'Investigation Cyber (Triage Lead) d'Aegis-Mind. "
-                "Votre objectif est d'analyser des alertes de sécurité complexes, d'interroger "
-                "Splunk via des requêtes SPL pour obtenir le contexte complet d'un incident, "
-                "et de déterminer si l'attaque est avérée ou s'il s'agit d'un faux positif."
+                "You are the Cyber Investigation Agent (Triage Lead) of Aegis-Mind. "
+                "Your objective is to analyze complex security alerts, query Splunk "
+                "via SPL queries for full incident context, and determine whether "
+                "the attack is confirmed or a false positive."
             )
         )
 
     async def run_investigation(self, alert_name: str, raw_payload: dict, circuit_breaker) -> dict:
-        """
-        Exécute le pipeline d'investigation autonome de l'agent.
-        
+        """Execute the agent's autonomous investigation pipeline.
+
         Args:
-            alert_name (str): Nom de l'alerte Splunk déclenchée.
-            raw_payload (dict): Métadonnées reçues de l'alerte.
-            circuit_breaker (QuotaCircuitBreaker): Coupe-circuit d'API.
-            
+            alert_name: Name of the triggered Splunk alert.
+            raw_payload: Metadata received from the alert.
+            circuit_breaker: API quota circuit breaker instance.
+
         Returns:
-            dict: Rapport d'analyse forensic.
+            A forensic analysis report dictionary.
         """
-        logger.info(f"[TRIAGE AGENT] Démarrage de l'investigation pour l'alerte: '{alert_name}'")
+        logger.info(f"[TRIAGE AGENT] Starting investigation for alert: '{alert_name}'")
         
-        # 1. Utilisation du Splunk AI Assistant pour générer la requête SPL appropriée
-        natural_request = f"Trouver tous les logs suspects associés à l'incident de type {alert_name} dans les logs récents."
+        # Step 1 — Use the Splunk AI Assistant to generate the appropriate SPL query
+        natural_request = f"Find all suspicious logs associated with {alert_name} type incident in recent logs."
         spl_query = SplunkAIAssistant.generate_spl(natural_request)
         
-        # Vérification syntaxique avant exécution
+        # Validate SPL syntax before execution
         validation = SplunkAIAssistant.validate_spl(spl_query)
         if not validation["valid"]:
-            logger.error(f"[TRIAGE AGENT] SPL Invalide : {validation['error']}")
+            logger.error(f"[TRIAGE AGENT] Invalid SPL: {validation['error']}")
             return {"status": "FAILED", "reason": validation["error"]}
 
-        # 2. Exécution de la requête via le serveur Splunk MCP
+        # Step 2 — Execute the query via the Splunk MCP server
         if circuit_breaker.increment_and_check():
             return {
                 "status": "SUPPRESSED",
-                "reason": "Circuit breaker déclenché : quota d'appels d'API épuisé."
+                "reason": "Circuit breaker triggered: API call quota exhausted."
             }
             
         events = self.mcp_client.execute_query(spl_query)
-        logger.info(f"[TRIAGE AGENT] {len(events)} évènements pertinents extraits de Splunk via MCP.")
+        logger.info(f"[TRIAGE AGENT] {len(events)} relevant events extracted from Splunk via MCP.")
 
-        # 3. Analyse Cyber - Simulation de la logique du modèle Foundation-Sec-1.1-8B
-        # Le modèle analyse les signatures de logs extraites
+        # Step 3 — Cyber analysis: simulate Foundation-Sec-1.1-8B model logic
+        # The model analyzes extracted log signatures to classify the incident
         incident_details = {}
         is_false_positive = False
         confidence_score = 0.95
         
         if "brute_force" in alert_name.lower():
-            # Analyse brute-force
+            # Brute-force attack analysis
             ip_attacker = events[0].get("src_ip", "Unknown") if events else ("194.26.29.84" if "low" not in alert_name.lower() else "Unknown")
             failed_count = sum(e.get("count", 0) for e in events) if events else (42 if "low" not in alert_name.lower() else 3)
             
-            # Si le nombre de tentatives échouées est faible, c'est potentiellement un faux positif
+            # Low failed-attempt count indicates a probable false positive
             if failed_count < 5:
                 is_false_positive = True
                 confidence_score = 0.90
-                analysis_text = f"Faux positif probable. Seulement {failed_count} échecs de connexion sur les dernières 2h."
+                analysis_text = f"Probable false positive. Only {failed_count} login failures over the last 2 hours."
             else:
                 analysis_text = (
-                    f"Vraie alerte de brute-force identifiée de l'IP {ip_attacker}. "
-                    f"Un total de {failed_count} échecs de connexion a été détecté."
+                    f"True brute-force alert identified from IP {ip_attacker}. "
+                    f"A total of {failed_count} failed login attempts were detected."
                 )
                 incident_details = {
                     "attacker_ip": ip_attacker,
@@ -98,15 +101,15 @@ class TriageAgent:
                 }
 
         elif "credential" in alert_name.lower() or "leak" in alert_name.lower():
-            # Analyse vol d'IAM credentials (sécurisé contre les listes vides)
+            # IAM credential theft analysis (guarded against empty event lists)
             compromised_role = events[0].get("RoleArn", "Unknown") if events else "arn:aws:iam::123456789012:role/k8s-pod-secrets-reader"
             attacker_ip = events[0].get("src_ip", "Unknown") if events else "82.102.23.4"
             count = events[0].get('count', 0) if events else 18
             
             analysis_text = (
-                f"Alerte CRITIQUE de vol de jetons d'accès IAM détectée. "
-                f"L'IP non-autorisée {attacker_ip} a tenté d'assumer le rôle Kubernetes '{compromised_role}' "
-                f"et a reçu {count} erreurs AccessDenied."
+                f"CRITICAL alert: IAM access token theft detected. "
+                f"Unauthorized IP {attacker_ip} attempted to assume the Kubernetes role '{compromised_role}' "
+                f"and received {count} AccessDenied errors."
             )
             incident_details = {
                 "attacker_ip": attacker_ip,
@@ -116,10 +119,10 @@ class TriageAgent:
             }
             
         else:
-            analysis_text = f"Analyse générique complétée pour l'alerte {alert_name}."
+            analysis_text = f"Generic analysis completed for alert {alert_name}."
             incident_details = {"severity": "MEDIUM"}
 
-        # 4. Évaluation du Circuit Breaker pour économiser les quotas d'API
+        # Step 4 — Evaluate the circuit breaker to conserve API quotas
         circuit_breaker.evaluate_triage(is_false_positive, confidence_score)
         
         return {

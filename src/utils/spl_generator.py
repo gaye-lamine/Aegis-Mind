@@ -61,7 +61,7 @@ class SplunkAIAssistant:
             spl_query = (
                 f'search index={index} log_level=ERROR\n'
                 f'| head 5\n'
-                f'| ai prompt="Analyse cette erreur système Splunk et propose une correction : {{_raw}}" model="gpt-oss-120b"'
+                f'| ai prompt="Analyze this Splunk system error and propose a correction: {{_raw}}" model="gpt-oss-120b"'
             )
         else:
             # Generic fallback SPL query
