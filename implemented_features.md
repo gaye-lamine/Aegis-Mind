@@ -1,90 +1,89 @@
-# Aegis-Mind — Implemented Architecture & Realized Features
+# Aegis-Mind — Implemented Architecture & Technical Features
 
-Ce document détaille l'implémentation technique réelle et l'architecture logicielle d'**Aegis-Mind — Autonomous Multi-Agent NOC for Incident Response** déployée au sein de notre dépôt. Il sert de rapport technique officiel pour les juges du **Splunk Agentic Ops Hackathon**.
+This document provides a detailed breakdown of the technical implementation and software architecture of **Aegis-Mind — Autonomous Multi-Agent NOC for Incident Response** deployed in this repository. It serves as the official technical report for the evaluators of the **Splunk Agentic Ops Hackathon**.
 
 ---
 
-## 🏗️ Structure Générale du Projet (Arborescence Réelle)
+## 🏗️ General Project Structure (Directory Outline)
 
-L'application est structurée de manière modulaire, séparant l'orchestrateur de terminal interactif local et le package natif Splunk App (`aegis_mind`) installé directement au cœur du serveur Splunk Enterprise :
+The application is architected in a modular fashion, separating the local interactive terminal console from the native Splunk App package (`aegis_mind`) installed directly within the Splunk Enterprise server:
 
 ```text
 .
-├── LICENSE                     # Licence MIT (requis pour la soumission Devpost)
-├── README.md                   # Guide d'installation, configuration et démarrage rapide
-├── architecture_diagram.md     # Schéma d'architecture textuel et flux de données
-├── overview.md                 # Fiche récapitative des objectifs du hackathon
-├── rules.md                    # Règlement officiel et barème du hackathon
-├── ressources.md               # Liens de documentation de la suite Splunk AI
-├── post_mortem_report.md       # Copie locale du rapport d'incident généré par la console
+├── LICENSE                     # MIT License (required for Devpost submission)
+├── README.md                   # Installation, configuration, and Quick Start guide
+├── architecture_diagram.md     # System architecture schema and data flow description
+├── overview.md                 # Hackathon objectives summary
+├── rules.md                    # Official hackathon rules and guidelines
+├── ressources.md               # Splunk AI documentation references
+├── post_mortem_report.md       # Local copy of the generated incident post-mortem report
 │
-├── src/                        # 🖥️ CELLULE INTERACTIVE NOC (Console locale)
-│   ├── main.py                 # Menu interactif, simulations et Copilote Chat bilingue
-│   ├── mcp_client.py           # Client Splunk MCP avec Self-Healing SPL et Fallback simulation
-│   ├── agents/                 # Logique d'agents réutilisable
-│   │   ├── triage_agent.py      # Triage cyber via Foundation-Sec
-│   │   ├── time_series_agent.py # Prédiction temporelle via Cisco Deep TS
-│   │   └── remediation_agent.py # Génération de playbook via gpt-oss-120b
+├── src/                        # 🖥️ INTERACTIVE NOC CELL (Local Console)
+│   ├── main.py                 # Interactive menu, simulations, and Bilingual Copilot Chat
+│   ├── mcp_client.py           # Splunk MCP Client with Self-Healing SPL and simulation fallback
+│   ├── agents/                 # Reusable agent logic
+│   │   ├── triage_agent.py      # Cyber threat triage using Foundation-Sec
+│   │   ├── time_series_agent.py # Temporal performance forecasting via Cisco Deep TS
+│   │   └── remediation_agent.py # Mitigation playbook synthesis via gpt-oss-120b
 │   └── utils/
-│       ├── circuit_breaker.py   # Coupe-circuit anti-gaspillage de quota d'API
-│       └── spl_generator.py     # Assistant IA SAIA bilingue (Traduction & Validation)
+│       ├── circuit_breaker.py   # Quota-saving API circuit breaker
+│       └── spl_generator.py     # Bilingual Splunk AI Assistant (Translation & Validation)
 │
-├── google/                     # 🧠 SHIM DE COMPATIBILITÉ SDK GOOGLE
-│   └── antigravity/            # Implémentation locale pour exécuter les agents n'importe où
+├── google/                     # 🧠 GOOGLE ANTIGRAVITY SDK COMPATIBILITY SHIM
+│   └── antigravity/            # Local shim to execute agents in any Python environment
 │
-└── aegis_mind/                 # 🛡️ APPLICATION NATIVE SPLUNK (etc/apps/aegis_mind)
-    ├── bin/                    # Exécutables lancés par le démon splunkd
-    │   ├── aegis_search_command.py  # Commande de recherche SPL custom (| aegismind)
-    │   ├── aegis_triage.py          # Script de déclenchement d'alerte custom
-    │   ├── mcp_client.py            # Connecteur MCP interne
-    │   ├── agents/                  # Agents NOC embarqués
-    │   ├── utils/                   # Utilitaires embarqués
-    │   ├── google/                  # Shim SDK embarqué
-    │   ├── splunklib/               # 📦 SDK Python Splunk Enterprise v3.0.0
-    │   │   ├── searchcommands/      # Gestion du protocole Chunked v2
-    │   │   ├── modularinput/        # Squelette d'entrées modulaires
-    │   │   └── ai/                  # 🤖 Cadre d'agents IA natif de Splunk SDK
+└── aegis_mind/                 # 🛡️ NATIVE SPLUNK APPLICATION (etc/apps/aegis_mind)
+    ├── bin/                    # Executables launched by the splunkd daemon
+    │   ├── aegis_search_command.py  # Custom SPL search command (| aegismind)
+    │   ├── aegis_triage.py          # Custom alert action script
+    │   ├── mcp_client.py            # Internal MCP client connector
+    │   ├── agents/                  # Embedded NOC agents
+    │   ├── utils/                   # Embedded utility tools
+    │   ├── google/                  # Embedded SDK shim
+    │   ├── splunklib/               # 📦 Splunk Enterprise Python SDK v3.0.0
+    │   │   ├── searchcommands/      # Chunked v2 protocol handler
+    │   │   ├── modularinput/        # Modular inputs skeleton
+    │   │   └── ai/                  # 🤖 Splunk SDK native AI agent framework
     │   └── splunk_sdk-3.0.0.dist-info
     │
-    ├── default/                # Configurations de l'application Splunk
-    │   ├── app.conf                 # Métadonnées d'installation et de navigation
-    │   ├── commands.conf            # Enregistrement de la commande custom '| aegismind'
-    │   ├── alert_actions.conf       # Enregistrement de l'action d'alerte 'aegis_triage'
-    │   └── data/ui/views/           # 📊 Interface utilisateur Splunk Web
-    │       └── aegis_dashboard.xml  # Tableau de bord NOC sombre interactif
+    ├── default/                # Splunk app configuration files
+    │   ├── app.conf                 # App metadata and navigation settings
+    │   ├── commands.conf            # Custom '| aegismind' search command registration
+    │   ├── alert_actions.conf       # 'aegis_triage' custom alert action registration
+    │   └── data/ui/views/           # 📊 Splunk Web User Interface
+    │       └── aegis_dashboard.xml  # Interactive dark-themed NOC dashboard
     └── metadata/
-        └── default.meta             # ACLs de partage d'objets globaux
+        └── default.meta             # Global object sharing ACLs
 ```
 
 ---
 
-## 🛠️ Description des Fonctionnalités Réellement Développées
+## 🛠️ Deep Dive into Implemented Features
 
-### 1. Commande de Recherche SPL Streaming (`| aegismind`)
-Déployée dans `aegis_mind/bin/aegis_search_command.py`, cette commande de recherche est basée sur le framework officiel `splunklib.searchcommands.StreamingCommand` et respecte le protocole moderne **Chunked v2** de Splunk.
-*   **Fonctionnement** : Elle intercepte le flux d'événements de n'importe quelle recherche SPL, analyse le champ sémantique brut `_raw` de chaque événement à l'aide de signatures sémantiques, et y injecte dynamiquement un nouveau champ `aegis_analysis` contenant l'analyse NOC en temps réel.
-*   **Résilience** : La commande est robuste et ne bloque pas le pipeline de recherche Splunk, garantissant des temps de réponse ultra-rapides.
+### 1. Streaming SPL Custom Search Command (`| aegismind`)
+Deployed in `aegis_mind/bin/aegis_search_command.py`, this search command is built on the official `splunklib.searchcommands.StreamingCommand` framework and fully implements Splunk's modern **Chunked v2** communication protocol.
+*   **Operational Flow**: It intercepts raw telemetry events from any active SPL search query, performs lightweight, fast semantic signature scanning on the raw `_raw` field, and dynamically appends a new field `aegis_analysis` containing the agent's real-time NOC evaluation.
+*   **Resilience**: The command is highly optimized to prevent blocking the Splunk search pipeline, maintaining fast execution times across large datasets.
 
-### 2. Action d'Alerte Customisée Multi-Agent (`aegis_triage`)
-Déployée dans `aegis_mind/bin/aegis_triage.py` et configurée dans `alert_actions.conf`.
-*   **Fonctionnement** : Lors du déclenchement d'une alerte, Splunkd passe le payload JSON de l'incident via `stdin` au script. Le script instancie de manière asynchrone notre cellule multi-agent autonome d'investigation :
-    1.  **Triage Agent** (`Foundation-Sec-1.1-8B-Instruct`) : Valide s'il s'agit d'un faux positif.
-    2.  **TimeSeries Agent** (`Cisco Deep Time Series`) : Extrait les métriques réseau de Splunk via le client MCP, calcule la tendance future et évalue la gravité opérationnelle.
-    3.  **Remediation Agent** (`gpt-oss-120b`) : Synthétise et applique un playbook d'atténuation.
-    4.  **Audit Compliance** : Enregistre automatiquement un rapport d'incident markdown complet avec diagramme de séquence Mermaid.js dans `/Applications/Splunk/etc/apps/aegis_mind/aegis_post_mortem.md`.
+### 2. Multi-Agent Custom Alert Action (`aegis_triage`)
+Implemented in `aegis_mind/bin/aegis_triage.py` and registered via `alert_actions.conf`.
+*   **Operational Flow**: Upon alert triggering, `splunkd` passes the incident's JSON payload via `stdin` to the triage script. The script asynchronously instantiates the autonomous multi-agent cell:
+    1.  **Triage Agent** (`Model: Foundation-Sec-1.1-8B-Instruct` logic): Evaluates the threat vectors and assesses if the alert is a false positive.
+    2.  **Time-Series Agent** (`Model: Cisco Deep Time Series` logic): Queries recent network throughput from Splunk via the MCP client, predicts the operational degradation timeline, and tunes severity metrics.
+    3.  **Remediation Agent** (`Model: gpt-oss-120b` logic): Synthesizes forensic and metric data to generate and apply a secure, sandboxed mitigation playbook.
+    4.  **Audit Compliance**: Automatically formats and saves a comprehensive post-mortem report markdown file containing a dynamic Mermaid.js sequence diagram to the app workspace.
 
-### 3. Connecteur Splunk MCP Client Réel & Robuste (`mcp_client.py`)
-Le fichier `src/mcp_client.py` sert de passerelle sémantique entre les agents IA et Splunk Enterprise.
-*   **Authentification par Jeton** : Utilise l'authentification par Bearer Token (`SPLUNK_TOKEN`) pour envoyer des requêtes sécurisées à l'API REST de Splunk (port `8089`), contournant de manière sûre les certificats SSL de développement.
-*   **Self-Healing SPL (Auto-Correction)** : Si une requête SPL échoue, le client MCP capture l'erreur de syntaxe retournée par Splunk, analyse le problème (guillemets simples obsolètes, manque de pipes, absence de commande `search` obligatoire) et applique des corrections automatiques avant de ré-exécuter la recherche avec succès.
-*   **Repli de Simulation intelligent (Fall-Through)** : Si une recherche SPL s'exécute avec succès mais que l'instance de test Splunk est vide (0 log retourné), le client MCP active automatiquement nos jeux de données de simulation haute-fidélité pour garantir une démonstration complète et visuelle aux juges.
+### 3. Splunk MCP Client Gateway (`mcp_client.py`)
+Found in `src/mcp_client.py`, this class acts as the secure semantic bridge between the AI agents and Splunk Enterprise.
+*   **Token Authentication**: Leverages standard Bearer Tokens (`SPLUNK_TOKEN`) to establish secure connections with the Splunk REST API (management port `8089`), handling self-signed development certificates gracefully.
+*   **Self-Healing SPL (Auto-Correction)**: If an AI-generated SPL query encounters syntax issues, the MCP client captures the exact error string returned by Splunk, parses it through heuristic correction rules (e.g., single to double quote conversions, missing statistics command pipes, absent leading search terms), and transparently re-submits the fixed query.
+*   **High-Fidelity Simulation Fallback**: If a query is successful but the target Splunk instance is empty (returning 0 events), the client automatically switches to pre-loaded, highly detailed simulated incident datasets (e.g., AWS CloudTrail session exfiltration, PostgreSQL SQLi attempts) to maintain a fully interactive and testable demonstration.
 
-### 4. Copilote NOC Chat Interactif Bilingue (`src/main.py`)
-Accessible via l'option **`[4]`** de la console NOC locale.
-*   **Interaction** : Permet aux analystes de discuter en langage naturel (français ou anglais) avec l'intelligence d'Aegis-Mind.
-*   **Splunk AI Assistant (SAIA)** : Traduit dynamiquement la demande (ex: *"Check s'il y a des credential leaks"*) en requête SPL, valide les risques d'injection, et y **injecte automatiquement la commande `| aegismind`** à la fin de manière transparente.
-*   **Affichage** : Affiche les résultats extraits de Splunk sous forme de tableaux structurés en couleur directement dans la console.
+### 4. Interactive NOC Copilot Chat Console (`src/main.py`)
+Accessible through option **`[4]`** of the standalone NOC Terminal.
+*   **Natural Language to SPL Translation**: Analysts can type questions in natural English or French (e.g., *"Show me recent brute-force login attempts"* or *"Check for credential exfiltration"*). The Splunk AI Assistant translates the request, validates it against common injection payloads, and automatically appends the custom `| aegismind` streaming command.
+*   **Display**: Safely extracts events via the Splunk MCP Server and renders structured, color-coded output tables directly inside the console interface.
 
-### 5. Alignement Technologique avec `splunklib.ai`
-Notre arborescence embarque le package officiel de Splunk Enterprise SDK v3.0.0, qui comprend le module d'intelligence artificielle natif **`splunklib.ai`**. 
-*   L'architecture de nos agents dans `src/agents/` est directement modélisée selon les patrons de conception de ce module natif (`Agent`, `BaseAgent`, `ToolSettings`, `connect_local_mcp`), prouvant notre respect strict et notre maîtrise des standards les plus avancés de la plateforme Splunk.
+### 5. Alignment with `splunklib.ai`
+Our internal agent packages directly incorporate the official Splunk Enterprise SDK v3.0.0, including its native **`splunklib.ai`** module.
+*   The architecture of our agents in `src/agents/` is strictly modeled around this framework's standard classes (`Agent`, `BaseAgent`, `ToolSettings`, `connect_local_mcp`), demonstrating rigorous adherence to Splunk's architectural standards for AI-driven platform extensions.
