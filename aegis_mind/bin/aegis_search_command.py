@@ -1,10 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""Custom Splunk streaming search command for Aegis-Mind NOC.
+
+Enriches each log event in a Splunk search pipeline with real-time
+cyber-triage analysis from the Aegis-Mind AI agent.
+
+Usage in Splunk Web::
+
+    index=main | head 5 | aegismind
+"""
 
 import sys
 import os
 
-# Injecter la racine bin dans sys.path pour les importations locales de manière propre
+# Add the bin directory to sys.path for clean local imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from splunklib.searchcommands import dispatch, StreamingCommand, Configuration
@@ -12,19 +21,26 @@ from mcp_client import SplunkMCPClient
 from utils.circuit_breaker import QuotaCircuitBreaker
 from agents.triage_agent import TriageAgent
 
+
 @Configuration()
 class AegisMindCommand(StreamingCommand):
-    """
-    Commande de recherche personnalisée Splunk Aegis-Mind.
-    
-    Enrichit en temps réel chaque ligne de log d'une recherche avec l'analyse cyber 
-    de l'agent IA d'Aegis-Mind NOC.
-    
-    Usage dans Splunk Web : index=main | head 5 | aegismind
+    """Custom Splunk search command that enriches log events with Aegis-Mind analysis.
+
+    Operates as a streaming command: each event flowing through the search
+    pipeline is annotated with a cyber-triage assessment in the
+    ``aegis_analysis`` field.
     """
 
     def stream(self, records):
-        # Initialisation du client MCP et des briques de triage de l'agent
+        """Process each search result record and inject triage analysis.
+
+        Args:
+            records: Iterator of Splunk search result dictionaries.
+
+        Yields:
+            Each record enriched with an ``aegis_analysis`` field.
+        """
+        # Initialize the MCP client and agent triage components
         mcp_client = SplunkMCPClient()
         mcp_client.connect()
         cb = QuotaCircuitBreaker(max_requests=10)
@@ -32,26 +48,27 @@ class AegisMindCommand(StreamingCommand):
 
         for record in records:
             raw_text = record.get("_raw", "")
-            
-            # Analyse cyber de l'agent en temps réel selon les signatures
+
+            # Real-time cyber analysis based on log signatures
             if "failed" in raw_text.lower() or "denied" in raw_text.lower():
                 analysis = (
-                    "⚠️ [Aegis-Mind Triage] Alerte d'échec d'authentification détectée. "
-                    "Le comportement semble suspect. Recommandation : Surveiller l'IP source."
+                    "⚠️ [Aegis-Mind Triage] Authentication failure alert detected. "
+                    "Behavior appears suspicious. Recommendation: Monitor source IP."
                 )
             elif "alter" in raw_text.lower() or "drop" in raw_text.lower():
                 analysis = (
-                    "🔥 [Aegis-Mind Forensic] Alerte CRITIQUE. "
-                    "Tentative de modification de structure de données détectée dans le pipeline de logs."
+                    "🔥 [Aegis-Mind Forensic] CRITICAL alert. "
+                    "Data structure modification attempt detected in the log pipeline."
                 )
             else:
-                analysis = "✅ [Aegis-Mind NOC] Activité système nominale analysée par l'agent."
+                analysis = "✅ [Aegis-Mind NOC] Nominal system activity analyzed by the agent."
 
-            # Injecter le nouveau champ 'aegis_analysis' directement dans les champs de l'évènement de recherche Splunk !
+            # Inject the 'aegis_analysis' field into the Splunk search event
             record["aegis_analysis"] = analysis
-            
-            # Renvoyer l'évènement enrichi à la suite du pipeline de recherche Splunk
+
+            # Yield the enriched event back into the Splunk search pipeline
             yield record
+
 
 if __name__ == "__main__":
     dispatch(AegisMindCommand, sys.argv, sys.stdin, sys.stdout, __name__)

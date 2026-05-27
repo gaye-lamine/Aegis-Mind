@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""Custom Splunk alert action for Aegis-Mind autonomous triage.
+
+Entry point invoked by Splunkd when a configured alert fires. Orchestrates
+the full multi-agent investigation pipeline — triage, time-series impact
+analysis, and auto-remediation — then writes a post-mortem report.
+"""
 
 import asyncio
 import os
@@ -8,7 +14,7 @@ import json
 import logging
 import time
 
-# Injecter la racine bin dans sys.path pour résoudre nos importations locales de manière propre
+# Add the bin directory to sys.path for clean local imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from mcp_client import SplunkMCPClient
@@ -17,55 +23,68 @@ from agents.triage_agent import TriageAgent
 from agents.time_series_agent import TimeSeriesAgent
 from agents.remediation_agent import RemediationAgent
 
-# Configurer le logging pour Splunkd (les sorties de script custom d'alertes vont dans $SPLUNK_HOME/var/log/splunk/splunkd.log)
+# Configure logging for Splunkd (custom alert script output goes to $SPLUNK_HOME/var/log/splunk/splunkd.log)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("AegisMind.CustomAlertAction")
 
+
 async def run_agentic_triage(alert_name: str, payload: dict) -> dict:
-    """Orchestre la cellule multi-agent autonome d'Aegis-Mind sur l'alerte Splunk."""
-    logger.info(f"Démarrage de la cellule de crise Aegis-Mind pour l'alerte : {alert_name}")
-    
-    # 1. Initialisation des briques MCP, Sécurité et Agents
-    # Remarque : Les informations de connexion (jeton, etc.) sont chargées automatiquement par le client via le fichier .env
+    """Orchestrate the Aegis-Mind autonomous multi-agent cell on a Splunk alert.
+
+    Runs the full investigation pipeline: forensic triage → time-series impact
+    analysis → automated remediation. The circuit breaker may halt the pipeline
+    early if a false positive is detected or the request quota is exceeded.
+
+    Args:
+        alert_name: Name of the triggered Splunk alert.
+        payload: JSON payload containing the alert's matching events.
+
+    Returns:
+        Investigation result dict with triage, time-series, and remediation data.
+    """
+    logger.info(f"Starting Aegis-Mind crisis cell for alert: {alert_name}")
+
+    # 1. Initialize MCP client, circuit breaker, and agent instances
+    # Note: Connection credentials (token, etc.) are loaded automatically by the client via .env
     mcp_client = SplunkMCPClient()
     mcp_client.connect()
-    
+
     cb = QuotaCircuitBreaker(max_requests=5, fp_confidence_threshold=0.85)
-    
+
     t_agent = TriageAgent(mcp_client)
     ts_agent = TimeSeriesAgent(mcp_client)
     rem_agent = RemediationAgent(mcp_client)
 
-    # 2. Triage Forensic Initial
+    # 2. Initial Forensic Triage
     triage_res = await t_agent.run_investigation(alert_name, payload, cb)
-    logger.info(f"Triage cyber complété. Faux Positif : {triage_res.get('is_false_positive')}")
+    logger.info(f"Cyber triage completed. False Positive: {triage_res.get('is_false_positive')}")
 
     if cb.tripped:
-        logger.warning(f"Pipeline coupe-circuit déclenché : {cb.trip_reason}")
+        logger.warning(f"Circuit breaker tripped: {cb.trip_reason}")
         return {
             "status": "SUPPRESSED",
             "reason": cb.trip_reason,
             "triage": triage_res
         }
 
-    # 3. Analyse Temporelle d'Impact
+    # 3. Temporal Impact Analysis
     ts_res = await ts_agent.analyze_impact(triage_res, cb)
-    logger.info(f"Analyse temporelle complétée. Gravité : {ts_res.get('severity_adjustment')}")
+    logger.info(f"Temporal analysis completed. Severity: {ts_res.get('severity_adjustment')}")
 
-    # 4. Auto-Remédiation & Playbook
+    # 4. Auto-Remediation & Playbook Execution
     rem_res = await rem_agent.execute_remediation(triage_res, ts_res, cb)
-    logger.info(f"Playbook de remédiation appliqué avec succès. Statut final : {rem_res.get('status')}")
+    logger.info(f"Remediation playbook applied successfully. Final status: {rem_res.get('status')}")
 
-    # 5. Enregistrer le rapport post-mortem dans le dossier var/run/splunk pour que Splunk y accède
+    # 5. Save post-mortem report under var/run/splunk for Splunk access
     splunk_run_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     report_file = os.path.join(splunk_run_dir, "aegis_post_mortem.md")
-    
-    # Écriture du rapport local
+
+    # Write the local incident report
     with open(report_file, "w", encoding="utf-8") as f:
-        f.write(f"# Aegis-Mind Incident Report\n\nIncident résolu avec succès.\nAction : {rem_res.get('mitigation_action')}\n")
-        
-    logger.info(f"Rapport d'incident enregistré dans {report_file}")
-    
+        f.write(f"# Aegis-Mind Incident Report\n\nIncident resolved successfully.\nAction: {rem_res.get('mitigation_action')}\n")
+
+    logger.info(f"Incident report saved to {report_file}")
+
     return {
         "status": "SUCCESS",
         "triage": triage_res,
@@ -73,39 +92,41 @@ async def run_agentic_triage(alert_name: str, payload: dict) -> dict:
         "remediation": rem_res
     }
 
+
 def main():
-    """Point d'entrée standard exécuté par Splunkd lors d'un déclenchement d'alerte."""
-    logger.info("Aegis-Mind Alert Action démarrée par Splunkd.")
-    
-    # Splunk passe le payload JSON de l'incident contenant les évènements correspondants via stdin
+    """Standard entry point executed by Splunkd when an alert fires."""
+    logger.info("Aegis-Mind Alert Action started by Splunkd.")
+
+    # Splunk passes the incident JSON payload (containing matching events) via stdin
     if len(sys.argv) > 1 and sys.argv[1] == "--execute":
         try:
-            # Lire le payload depuis stdin
+            # Read the payload from stdin
             payload_str = sys.stdin.read()
             if not payload_str:
-                logger.error("Aucun payload reçu de Splunkd via stdin.")
+                logger.error("No payload received from Splunkd via stdin.")
                 sys.exit(1)
 
             payload = json.loads(payload_str)
-            
-            # Récupérer les métadonnées de l'alerte
+
+            # Extract alert metadata
             alert_name = payload.get("search_name", "Kubernetes Suspicious Event")
-            result_events = payload.get("result", {}) # L'évènement qui a déclenché l'alerte
-            
-            # Exécuter l'investigation agentique de manière asynchrone
+            result_events = payload.get("result", {})  # The event that triggered the alert
+
+            # Run the agentic investigation asynchronously
             loop = asyncio.get_event_loop()
             res = loop.run_until_complete(run_agentic_triage(alert_name, result_events))
-            
-            # Splunkd attend 0 en sortie pour confirmer le bon déclenchement de l'action
+
+            # Splunkd expects exit code 0 to confirm successful action execution
             print(json.dumps({"status": "SUCCESS", "details": res}))
             sys.exit(0)
 
         except Exception as e:
-            logger.critical(f"Erreur fatale lors de l'exécution de l'alerte Aegis-Mind : {e}", exc_info=True)
+            logger.critical(f"Fatal error during Aegis-Mind alert execution: {e}", exc_info=True)
             sys.exit(2)
     else:
-        logger.error("Usage invalide. Doit être appelé avec '--execute'.")
+        logger.error("Invalid usage. Must be called with '--execute'.")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

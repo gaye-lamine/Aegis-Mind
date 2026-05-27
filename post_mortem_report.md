@@ -1,7 +1,7 @@
 # Rapport d'Incident Aegis-Mind (Post-Mortem Autonome)
 
 **Généré automatiquement par Aegis-Mind NOC**  
-**Date de l'Incident :** 2026-05-26 13:00:45 UTC  
+**Date de l'Incident :** 2026-05-26 15:21:09 UTC  
 **Type d'Alerte :** Kubernetes Credential Exfiltration (Incident Majeur)  
 
 ---
@@ -9,7 +9,7 @@
 ## 📊 1. Résumé de l'Incident
 
 *   **Statut Final :** ✅ RÉSOLU AUTOMATIQUEMENT
-*   **Gravité Détectée :** MEDIUM
+*   **Gravité Détectée :** CRITICAL
 *   **Temps Moyen de Réponse (MTTR) :** < 4.2 secondes (Autonome)
 *   **Économie Opérationnelle (Estimation) :** $24,500 USD (Évitement d'une panne majeure de production)
 
@@ -24,6 +24,7 @@
     search index=main sourcetype="aws:cloudtrail" eventName="AssumeRole" errorCode="AccessDenied"
 | stats count values(arn) by userIdentity.sessionContext.sessionIssuer.arn, src_ip
 | rename userIdentity.sessionContext.sessionIssuer.arn as RoleArn
+| aegismind
     ```
 *   **Analyse du Modèle :**  
     > Alerte CRITIQUE de vol de jetons d'accès IAM détectée. L'IP non-autorisée 82.102.23.4 a tenté d'assumer le rôle Kubernetes 'arn:aws:iam::123456789012:role/k8s-pod-secrets-reader' et a reçu 18 erreurs AccessDenied.
@@ -37,8 +38,8 @@ search index=main sourcetype="kube:metrics" metric_name="network_throughput"
 | predict network_mbps as forecast algorithm="CiscoDeepTimeSeries" future_timespan=15
 ```
 *   **Analyse d'Impact Réseau/Système :**
-    > Les métriques actuelles révèlent un débit de 120.0 Mbps (déviation de +0.0% par rapport à la baseline de 120.0 Mbps). La prédiction du modèle Cisco Deep Time Series pour les 15 prochaines minutes indique que le débit atteindra 150.0 Mbps, suggérant une congestion critique si aucune remédiation n'est appliquée.
-    > **Impact sur la production :** MINEUR - Perturbation transitoire sans impact utilisateur détectable.
+    > Les métriques actuelles révèlent un débit de 940.1 Mbps (déviation de +683.4% par rapport à la baseline de 120.0 Mbps). La prédiction du modèle Cisco Deep Time Series pour les 15 prochaines minutes indique que le débit atteindra 1050.0 Mbps, suggérant une congestion critique si aucune remédiation n'est appliquée.
+    > **Impact sur la production :** CRITIQUE - Déni de Service (DoS) en cours sur l'infrastructure.
 
 ---
 
@@ -56,7 +57,7 @@ aws iam put-role-policy --role-name k8s-pod-secrets-reader --policy-name RevokeS
     "Resource": "*",
     "Condition": {
       "DateLessThan": {
-        "aws:TokenIssueTime": "2026-05-26T13:00:44Z"
+        "aws:TokenIssueTime": "2026-05-26T15:21:08Z"
       }
     }
   }

@@ -1,13 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+"""
+Aegis-Mind NOC Terminal Orchestrator.
+
+Cyberpunk-themed ANSI console that drives the multi-agent incident-response
+pipeline: Triage → Time-Series Analysis → Auto-Remediation → Post-Mortem
+report generation.  Includes an interactive Copilot chat mode for ad-hoc
+SPL queries with Self-Healing SPL support.
+"""
+
 import asyncio
 import os
 import sys
 import time
 import logging
 
-# Injecter le répertoire parent dans sys.path pour résoudre le module 'src'
+# Insert parent directory into sys.path so the 'src' package can be resolved
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.mcp_client import SplunkMCPClient
@@ -17,11 +26,11 @@ from src.agents.time_series_agent import TimeSeriesAgent
 from src.agents.remediation_agent import RemediationAgent
 from src.utils.spl_generator import SplunkAIAssistant
 
-# Configurer le logging pour l'orchestrateur
+# Configure logging for the orchestrator
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("AegisMind.Orchestrator")
 
-# Codes de couleur ANSI pour une interface "WOW" de type Console de Cyber-Sécurité
+# ANSI colour codes for the cyberpunk-style security console UI
 C_GREEN = "\033[92m"
 C_RED = "\033[91m"
 C_AMBER = "\033[93m"
@@ -30,26 +39,27 @@ C_CYAN = "\033[96m"
 C_BOLD = "\033[1m"
 C_RESET = "\033[0m"
 
+# Pre-defined demo scenarios for the hackathon live demonstration
 SCENARIOS = {
     "1": {
-        "name": "Kubernetes Credential Exfiltration (Incident Majeur)",
+        "name": "Kubernetes Credential Exfiltration (Major Incident)",
         "alert_name": "kubernetes_iam_credential_leak",
         "payload": {"cluster": "production-k8s-us", "namespaces": ["default", "finance"]}
     },
     "2": {
-        "name": "Attaque Brute-Force SSH / Authentification (Alerte Établie)",
+        "name": "SSH Brute-Force / Authentication Attack (Confirmed Alert)",
         "alert_name": "brute_force_ssh_login",
         "payload": {"target_host": "secure-gateway-srv"}
     },
     "3": {
-        "name": "Attaque Brute-Force SSH - Faible Intensité (Faux Positif)",
+        "name": "SSH Brute-Force – Low Intensity (False Positive)",
         "alert_name": "brute_force_ssh_low_intensity",
         "payload": {"target_host": "dev-sandbox-srv"}
     }
 }
 
 def print_banner():
-    """Affiche la bannière cyber-sécurité d'Aegis-Mind dans la console."""
+    """Print the Aegis-Mind cybersecurity ASCII art banner to the console."""
     banner = f"""
 {C_CYAN}{C_BOLD}================================================================================
           █████╗ ███████╗ ██████╗ ██╗███████╗      ███╗   ███╗██╗███╗   ██╗██████╗ 
@@ -64,26 +74,40 @@ def print_banner():
     print(banner)
 
 async def simulate_thinking(agent_name: str, seconds: float = 2.0):
-    """Simule visuellement le raisonnement d'un agent avec un spinner ANSI."""
+    """Display an animated ANSI spinner to visualise agent reasoning.
+
+    Args:
+        agent_name: Label shown next to the spinner (e.g. "Triage Agent").
+        seconds: Duration of the animation in seconds.
+    """
     chars = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
     end_time = time.time() + seconds
     i = 0
     while time.time() < end_time:
-        sys.stdout.write(f"\r{C_BLUE}[PENSÉE - {agent_name}]{C_RESET} {chars[i % len(chars)]} Analyse des variables et logs Splunk ...")
+        sys.stdout.write(f"\r{C_BLUE}[THINKING - {agent_name}]{C_RESET} {chars[i % len(chars)]} Analysing Splunk variables and logs ...")
         sys.stdout.flush()
         await asyncio.sleep(0.1)
         i += 1
-    sys.stdout.write("\r\033[K") # Efface la ligne du spinner
+    sys.stdout.write("\r\033[K")  # Clear the spinner line
     sys.stdout.flush()
 
 def generate_post_mortem(scenario_name: str, triage_res: dict, ts_res: dict, rem_res: dict, file_path: str):
-    """
-    Génère un rapport Post-Mortem de crise ultra-léché au format Markdown
-    avec un diagramme Mermaid.js de l'attaque et de la remédiation.
+    """Generate a polished Markdown Post-Mortem report with a Mermaid sequence diagram.
+
+    The report covers the full incident lifecycle: triage findings, time-series
+    impact analysis, remediation actions, and an auto-generated Mermaid.js
+    diagram showing the attack flow and response.
+
+    Args:
+        scenario_name: Human-readable name of the alert scenario.
+        triage_res: Output dict from the Triage Agent.
+        ts_res: Output dict from the Time-Series Agent.
+        rem_res: Output dict from the Remediation Agent.
+        file_path: Destination path for the generated ``.md`` report.
     """
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S UTC")
     
-    # Construction du diagramme Mermaid.js dynamique
+    # Build the Mermaid.js sequence diagram dynamically
     mermaid_diag = "sequenceDiagram\n"
     mermaid_diag += "    autonumber\n"
     mermaid_diag += "    participant Infra as Infrastructure (Kubernetes/AWS)\n"
@@ -169,10 +193,17 @@ def generate_post_mortem(scenario_name: str, triage_res: dict, ts_res: dict, rem
 """
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(report)
-    logger.info(f"[ORCHESTRATEUR] Rapport post-mortem enregistré avec succès dans : {file_path}")
+    logger.info(f"[ORCHESTRATOR] Post-mortem report saved successfully to: {file_path}")
 
 async def run_scenario(choice: str):
-    """Orchestre l'ensemble du pipeline multi-agent pour le scénario choisi."""
+    """Orchestrate the full multi-agent pipeline for the selected scenario.
+
+    Executes three sequential stages — Triage, Time-Series Analysis, and
+    Auto-Remediation — then generates a Post-Mortem Markdown report.
+
+    Args:
+        choice: Key into the ``SCENARIOS`` dict (e.g. "1", "2", "3").
+    """
     scen = SCENARIOS[choice]
     alert_name = scen["alert_name"]
     scen_name = scen["name"]
@@ -181,7 +212,7 @@ async def run_scenario(choice: str):
     print(f"\n{C_BOLD}{C_BLUE}>>> Lancement du Scénario [{choice}] : {scen_name}{C_RESET}")
     print(f"--------------------------------------------------------------------------------")
 
-    # Initialisation des briques
+    # Initialise core components
     mcp_client = SplunkMCPClient()
     mcp_client.connect()
     
@@ -191,7 +222,7 @@ async def run_scenario(choice: str):
     ts_agent = TimeSeriesAgent(mcp_client)
     rem_agent = RemediationAgent(mcp_client)
 
-    # 1. Étape de Triage
+    # Stage 1 — Triage
     await simulate_thinking("🕵️‍♂️ Triage Agent", 2.0)
     triage_res = await t_agent.run_investigation(alert_name, payload, cb)
     
@@ -205,7 +236,7 @@ async def run_scenario(choice: str):
         ts_res = {"status": "SKIPPED"}
         rem_res = {"status": "SKIPPED"}
     else:
-        # 2. Étape d'Analyse Séries Temporelles
+        # Stage 2 — Time-Series Analysis
         await simulate_thinking("📊 Time-Series Agent", 1.8)
         ts_res = await ts_agent.analyze_impact(triage_res, cb)
         
@@ -214,7 +245,7 @@ async def run_scenario(choice: str):
         print(f"  └─ Impact de Panne     : {C_BOLD}{ts_res.get('operational_impact')}{C_RESET}")
         print(f"  └─ Ajustement Gravité  : {C_AMBER if ts_res.get('severity_adjustment') == 'HIGH' else C_RED}{ts_res.get('severity_adjustment')}{C_RESET}")
 
-        # 3. Étape d'Auto-Remédiation
+        # Stage 3 — Auto-Remediation
         await simulate_thinking("⚡ Remediation Agent", 2.2)
         rem_res = await rem_agent.execute_remediation(triage_res, ts_res, cb)
         
@@ -223,7 +254,7 @@ async def run_scenario(choice: str):
         print(f"  └─ Code Playbook       : \n{C_BLUE}{rem_res.get('playbook_code')}{C_RESET}")
         print(f"  └─ Statut Efficacité   : {C_GREEN}{rem_res.get('verification_status')}{C_RESET}")
 
-    # 4. Génération du Rapport Post-Mortem
+    # Stage 4 — Generate Post-Mortem report
     file_report = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "post_mortem_report.md")
     generate_post_mortem(scen_name, triage_res, ts_res, rem_res, file_report)
     
@@ -233,6 +264,12 @@ async def run_scenario(choice: str):
     print(f"================================================================================{C_RESET}\n")
 
 async def run_copilot_chat():
+    """Launch the interactive Copilot chat loop.
+
+    Accepts natural-language security questions, translates them to SPL via
+    the SplunkAIAssistant, executes them through the MCP client (with
+    Self-Healing SPL), and pretty-prints the results.
+    """
     print(f"\n{C_BOLD}{C_BLUE}================================================================================")
     print(f"💬 BIENVENUE DANS LE COPILOTE INTERACTIF AEGIS-MIND CHAT")
     print(f"Posez vos questions sur la sécurité et le NOC en langage naturel.")
@@ -245,7 +282,7 @@ async def run_copilot_chat():
     print(f"Tapez 'exit' pour quitter le chat.")
     print(f"================================================================================{C_RESET}\n")
 
-    # Utiliser le client MCP réel s'il est configuré dans .env, sinon mock intelligent
+    # Use the real MCP client if configured in .env, otherwise fall back to mock
     mcp_client = SplunkMCPClient()
     mcp_client.connect()
     
@@ -261,20 +298,20 @@ async def run_copilot_chat():
             print(f"{C_BLUE}[COPILOTE] Analyse de votre demande...{C_RESET}")
             await asyncio.sleep(0.5)
             
-            # 1. Génération SPL via SAIA
+            # Step 1 — Generate SPL via the Splunk AI Assistant (SAIA)
             spl_query = SplunkAIAssistant.generate_spl(user_input)
             
-            # 2. Validation SPL
+            # Step 2 — Validate the generated SPL syntax
             validation = SplunkAIAssistant.validate_spl(spl_query)
             if not validation["valid"]:
                 print(f"{C_RED}[ERREUR DE VALIDATION SAIA] {validation['error']}{C_RESET}\n")
                 continue
                 
-            # 3. Exécution de la requête via le client MCP (avec Self-Healing intégré !)
+            # Step 3 — Execute the query through MCP (Self-Healing built in)
             print(f"{C_BLUE}[COPILOTE] Envoi de la requête SPL à Splunk...{C_RESET}")
             events = mcp_client.execute_query(spl_query)
             
-            # 4. Affichage des résultats
+            # Step 4 — Display results
             if not events:
                 print(f"{C_AMBER}[COPILOTE] Aucun événement trouvé pour cette requête dans l'index.{C_RESET}\n")
             else:
@@ -298,6 +335,7 @@ async def run_copilot_chat():
             print(f"{C_RED}[ERREUR FATALE COPILOTE] {e}{C_RESET}\n")
 
 async def main():
+    """Main event loop — display the NOC menu and dispatch user choices."""
     print_banner()
     while True:
         print(f"{C_BOLD}Veuillez choisir une action Aegis-Mind NOC :{C_RESET}")

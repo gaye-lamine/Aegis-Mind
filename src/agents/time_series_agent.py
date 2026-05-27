@@ -8,87 +8,90 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("AegisMind.TimeSeriesAgent")
 
 class TimeSeriesAgent:
-    """
-    📊 Agent de Corrélation Temporelle & d'Impact (The Analyst).
-    
-    Orchestré sous le Google Antigravity SDK.
-    Modèle d'IA : Cisco Deep Time Series Model (pour la prévision d'impact sur séries temporelles).
-    
-    Rôle :
-    1. Extrait les métriques réseau/CPU actuelles associées à l'incident dans Splunk.
-    2. Analyse le comportement temporel et les écarts par rapport à la baseline historique.
-    3. Prédit la dégradation opérationnelle future (t+15min, t+1h).
+    """Temporal Correlation & Impact Agent (The Analyst).
+
+    Orchestrated via the Google Antigravity SDK.
+    AI Model: Cisco Deep Time Series Model (for time-series impact forecasting).
+
+    Responsibilities:
+        1. Extracts current network/CPU metrics associated with the incident from Splunk.
+        2. Analyzes temporal behaviour and deviations from the historical baseline.
+        3. Predicts future operational degradation (t+15 min, t+1 h).
     """
 
     def __init__(self, mcp_client: SplunkMCPClient):
+        """Initialize the Time-Series Agent.
+
+        Args:
+            mcp_client: Splunk MCP client used to query performance telemetry.
+        """
         self.mcp_client = mcp_client
         self.model_name = "Cisco Deep Time Series Model"
         
-        # Configuration de l'agent Antigravity
+        # Configure the Antigravity agent
         self.agent_config = LocalAgentConfig(
             model="gemini-3.5-flash",
             system_instructions=(
-                "Vous êtes l'Agent de Corrélation Temporelle (The Analyst) de la plateforme Aegis-Mind. "
-                "Votre objectif est d'analyser des métriques de performance système, de calculer "
-                "des déviations par rapport aux historiques de référence (baselines) et de prédire "
-                "l'impact opérationnel d'une attaque sur la production à court terme."
+                "You are the Temporal Correlation Agent (The Analyst) of the Aegis-Mind platform. "
+                "Your objective is to analyze system performance metrics, calculate deviations "
+                "from historical reference baselines, and predict the short-term operational "
+                "impact of an attack on production."
             )
         )
 
     async def analyze_impact(self, triage_report: dict, circuit_breaker) -> dict:
-        """
-        Analyse les séries temporelles de performance pour estimer l'impact de la crise.
-        
+        """Analyze performance time-series to estimate the crisis impact.
+
         Args:
-            triage_report (dict): Le rapport forensic émis par le Triage Agent.
-            circuit_breaker (QuotaCircuitBreaker): Le coupe-circuit d'API.
-            
+            triage_report: Forensic report emitted by the Triage Agent.
+            circuit_breaker: API quota circuit breaker instance.
+
         Returns:
-            dict: Rapport opérationnel prédictif.
+            A predictive operational report dictionary.
         """
-        logger.info("[TIME-SERIES AGENT] Démarrage de l'analyse d'impact de performance...")
+        logger.info("[TIME-SERIES AGENT] Starting performance impact analysis...")
 
         if triage_report.get("is_false_positive", False):
-            logger.info("[TIME-SERIES AGENT] L'incident a été classé Faux Positif. Analyse sautée.")
-            return {"status": "SKIPPED", "reason": "Incident identifié comme Faux Positif."}
+            logger.info("[TIME-SERIES AGENT] Incident classified as False Positive. Analysis skipped.")
+            return {"status": "SKIPPED", "reason": "Incident identified as False Positive."}
 
-        # 1. Génération de la requête SPL pour extraire la télémétrie de performance
-        spl_query = SplunkAIAssistant.generate_spl("Obtenir l'anomalie de performance metrics network throughput")
+        # Step 1 — Generate the SPL query to extract performance telemetry
+        spl_query = SplunkAIAssistant.generate_spl("Get performance metrics network throughput anomaly")
         
         if circuit_breaker.increment_and_check():
             return {
                 "status": "SUPPRESSED",
-                "reason": "Circuit breaker déclenché : quota d'appels d'API épuisé."
+                "reason": "Circuit breaker triggered: API call quota exhausted."
             }
 
-        # 2. Récupération des données via le serveur Splunk MCP
+        # Step 2 — Retrieve data via the Splunk MCP server
         metrics_data = self.mcp_client.execute_query(spl_query)
-        logger.info(f"[TIME-SERIES AGENT] Extraction de {len(metrics_data)} points temporels pour analyse.")
+        logger.info(f"[TIME-SERIES AGENT] Extracted {len(metrics_data)} temporal data points for analysis.")
 
-        # 3. Calcul de la déviation et prédiction de la tendance (Simulation Cisco Deep Time Series)
+        # Step 3 — Deviation calculation & trend prediction (Cisco Deep Time Series simulation)
         current_throughput = metrics_data[-1].get("network_mbps", 120.0) if metrics_data else 120.0
         predicted_throughput = metrics_data[-1].get("forecast", 150.0) if metrics_data else 150.0
         
-        baseline_avg = 120.0  # Mbps standard en conditions de production normales
+        baseline_avg = 120.0  # Standard Mbps under normal production conditions
         deviation_percent = ((current_throughput - baseline_avg) / baseline_avg) * 100
 
-        # Diagnostics de criticité opérationnelle
+        # Operational criticality diagnostics based on deviation thresholds
         if deviation_percent > 400:
-            operational_impact = "CRITIQUE - Déni de Service (DoS) en cours sur l'infrastructure."
+            operational_impact = "CRITICAL - Denial of Service (DoS) in progress on the infrastructure."
             severity_adjustment = "CRITICAL"
         elif deviation_percent > 200:
-            operational_impact = "MAJEUR - Dégradation des temps de réponse applicatifs."
+            operational_impact = "MAJOR - Application response time degradation."
             severity_adjustment = "HIGH"
         else:
-            operational_impact = "MINEUR - Perturbation transitoire sans impact utilisateur détectable."
+            operational_impact = "MINOR - Transient disturbance with no detectable user impact."
             severity_adjustment = "MEDIUM"
 
         forecast_text = (
-            f"Les métriques actuelles révèlent un débit de {current_throughput:.1f} Mbps "
-            f"(déviation de {deviation_percent:+.1f}% par rapport à la baseline de {baseline_avg:.1f} Mbps). "
-            f"La prédiction du modèle Cisco Deep Time Series pour les 15 prochaines minutes "
-            f"indique que le débit atteindra {predicted_throughput:.1f} Mbps, suggérant une "
-            f"congestion critique si aucune remédiation n'est appliquée."
+            f"Current metrics show a throughput of {current_throughput:.1f} Mbps "
+            f"(deviation of {deviation_percent:+.1f}% from the {baseline_avg:.1f} Mbps baseline). "
+            f"The Cisco Deep Time Series model predicts throughput will reach "
+            f"{predicted_throughput:.1f} Mbps in the next 15 minutes, suggesting "
+            f"critical congestion if no remediation is applied."
         )
 
         return {
