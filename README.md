@@ -1,95 +1,96 @@
-# 🚀 Aegis-Mind: Autonomous Multi-Agent NOC for Incident Response
+# Aegis-Mind: Autonomous Multi-Agent NOC for Incident Response
 
-Aegis-Mind is an autonomous, event-driven crisis management and incident response system (SOC/NOC) designed to instantly mitigate high-priority security and operational threats. Built for the **Splunk Agentic Ops Hackathon**, it combines the **Google Antigravity SDK** with the **Splunk Model Context Protocol (MCP) Server** to automate incident triage, predict operational performance degradation, and execute secure remediation playbooks.
+Aegis-Mind is an autonomous, event-driven incident response and threat mitigation system (SOC/NOC) designed to analyze and remediate high-priority security and operational events. Built for the **Splunk Agentic Ops Hackathon**, it leverages the **Google Antigravity SDK** alongside the **Splunk Model Context Protocol (MCP) Server** to automate triage, predict performance impact, and execute secure, audited remediation playbooks.
 
 ---
 
-## 🎯 Core Features & "WOW" Factors
+## 🎯 Core System Capabilities
 
 ### 1. Autonomous Multi-Agent Cell (`src/agents/`)
-Aegis-Mind deploys a collaborative triage cell of three specialized AI agents:
-*   **🕵️‍♂️ Triage Agent:** Utilizing the Splunk hosted `Foundation-Sec-1.1-8B-Instruct` model logic. It queries Splunk logs via the **Splunk MCP Server** to run deep forensic triage, identifying the attack vector and malicious sources.
-*   **📊 Time-Series Agent:** Simulating the `Cisco Deep Time Series Model`. It parses network throughput and CPU usage trends to predict production performance degradation at $t+15\text{m}$ and $t+1\text{h}$, automatically scaling critical incident response severity.
-*   **⚡ Remediation Agent:** Powered by `gpt-oss-120b` logic. It synthesizes forensic telemetry to craft target playbooks (e.g. Calico firewall IP drops, AWS IAM trust policy revocations) and queries Splunk to verify restoration.
+Aegis-Mind orchestrates a collaborative, multi-agent cell composed of three specialized components:
+*   **🕵️‍♂️ Triage Agent:** Integrates Splunk-hosted `Foundation-Sec-1.1-8B-Instruct` model logic. It queries raw telemetry via the **Splunk MCP Server** to perform forensic analysis, identify attack vectors, and trace source indicators of compromise (IoCs).
+*   **📊 Time-Series Agent:** Emulates a `Cisco Deep Time Series` model. It analyzes operational trends (e.g., network throughput, CPU utilization) to forecast potential performance degradation at $t+15\text{m}$ and $t+1\text{h}$, dynamically adjusting incident severity based on predictive metrics.
+*   **⚡ Remediation Agent:** Implements `gpt-oss-120b` reasoning. It synthesizes forensic data from the Triage and Time-Series agents to generate targeted playbooks (e.g., Calico network policy adjustments, AWS IAM policy revocations) and validates system restoration via Splunk queries.
 
 ### 2. Quota Circuit Breaker (`src/utils/circuit_breaker.py`)
-To prevent "alert fatigue" and save precious Splunk API and model resource quotas, the **Circuit Breaker** continuously counts API searches. If an alert is confidently classified as a False Positive by the Triage Agent, it immediately trips, stopping downstream execution.
+To optimize Splunk API usage and manage LLM token consumption, a **Circuit Breaker** monitor tracks operational costs. If an anomalous event is determined to be a False Positive by the Triage Agent, the circuit breaker immediately trips, preventing unnecessary downstream agent invocation.
 
-### 3. Interactive NOC Terminal UX (`src/main.py`)
-A gorgeous, standalone, retro-futuristic dark-themed command-line dashboard utilizing colorful ANSI formatting. It allows judges to select and inject pre-configured incident scenarios in real-time and observe the agents' step-by-step thinking processes.
+### 3. Interactive NOC Console (`src/main.py`)
+A standalone terminal-based console utilizing ANSI formatting. It provides a visual interface for users to select, execute, and monitor built-in incident scenarios, exposing the underlying multi-agent reasoning trace.
 
-### 4. Automated Post-Mortem Report Generator
-At the completion of each incident, the orchestrator compiles and saves a comprehensive incident post-mortem markdown document (`post_mortem_report.md`) containing calculated MTTR, financial cost savings, detailed agent actions, and a dynamic **Mermaid.js sequence diagram** representing the entire crisis lifespan.
+### 4. Automated Post-Mortem Generation
+Upon incident resolution, the orchestrator generates a comprehensive markdown post-mortem report (`post_mortem_report.md`). The report documents calculated Mean Time to Resolution (MTTR), quantified cost savings, and compiles an automated **Mermaid.js sequence diagram** tracing the chronological agent interactions.
 
 ---
 
 ## 🏗️ System Architecture
 
 ```text
-[ Infrastructure Télémétrie ]
+[ Infrastructure Telemetry ]
              │
-             ▼ (Ingestion continue)
+             ▼ (Continuous Ingestion)
 ┌───────────────────────────────────────────────┐
 │              Splunk Enterprise                │◄────────┐
-│             (Moteur de Recherche)             │         │
+│               (Search Engine)                 │         │
+│                                               │         │
 └───────────────────────┬───────────────────────┘         │
                         │                                 │
-     Déclenchement      │ (Token Auth)                    │ Requêtes SPL /
-    AI Custom Alert     ▼                                 │ Tool-Calling
+     AI Custom Alert    │ (Token Auth)                    │ SPL Queries /
+     Trigger            ▼                                 │ Tool-Calling
 ┌───────────────────────────────────────────────┐         │ (Splunk MCP Server)
 │             Aegis-Mind Gateway                │         │
 └───────────────────────┬───────────────────────┘         │
                         │                                 │
-                        ▼ (Orchestration des Tâches)      │
+                        ▼ (Task Orchestration)            │
 ┌─────────────────────────────────────────────────────────┼────────┐
 │                     AEGIS-MIND CORE                     │        │
 │                                                         │        │
 │    ┌─────────────────────────────────────────────┐      │        │
-│    │  🕵️‍♂️ Agent d'Investigation (Triage)         ├──────►│        │
-│    │  Modèle : Foundation-Sec-1.1-8B-Instruct     │      │        │
+│    │  🕵️‍♂️ Triage Agent                            ├──────►│        │
+│    │  Model: Foundation-Sec-1.1-8B-Instruct      │      │        │
 │    └──────────────────────┬──────────────────────┘      │        │
 │                           │                             │        │
 │    ┌──────────────────────▼──────────────────────┐      │        │
-│    │  📊 Agent de Corrélation Temporelle         ├──────►│        │
-│    │  Modèle : Cisco Deep Time Series Model      │      │        │
+│    │  📊 Time-Series Agent                       ├──────►│        │
+│    │  Model: Cisco Deep Time Series Model        │      │        │
 │    └──────────────────────┬──────────────────────┘      │        │
 │                           │                             │        │
 │    ┌──────────────────────▼──────────────────────┐      │        │
-│    │  ⚡ Agent d'Auto-Remédiation (Playbook)      ├──────┘        │
-│    │  Modèle : gpt-oss-120b                      │               │
+│    │  ⚡ Remediation Agent                       ├──────┘        │
+│    │  Model: gpt-oss-120b                        │               │
 │    └─────────────────────────────────────────────┘               │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-See [architecture_diagram.md](architecture_diagram.md) for full data flow descriptions.
+For detailed data flow documentation, see [architecture_diagram.md](architecture_diagram.md).
 
 ---
 
-## 🚀 Quick Start (Testing for Judges)
+## 🚀 Getting Started & Evaluation Guide
 
-Aegis-Mind features an **interactive simulator mode** pre-loaded with high-impact incident datasets. Judges can run the entire agentic incident response loop locally with **zero external dependencies** and **zero configuration overhead**.
+Aegis-Mind features a high-fidelity simulation engine pre-loaded with representative incident datasets. Evaluators can execute the complete agentic incident response loop locally with **zero external dependencies** and **no prior API configuration**.
 
 ### 1. Prerequisites
 Ensure you have **Python 3.8+** installed.
 
 ### 2. Installation
-Clone the repository and navigate to the root directory:
+Clone the repository and navigate to the project directory:
 ```bash
-git clone https://github.com/your-username/aegis-mind.git
-cd aegis-mind
+git clone https://github.com/gaye-lamine/Aegis-Mind.git
+cd Aegis-Mind
 ```
 
-### 3. Run the NOC Interactive Terminal
-Launch the orchestrator dashboard:
+### 3. Run the NOC Interactive Console
+Execute the orchestrator:
 ```bash
 python3 src/main.py
 ```
 
-### 4. Interactive Scenarios
-When the NOC Shell opens, choose one of three pre-configured incident scenarios:
-1.  `[1]` **Kubernetes Credential Exfiltration:** A critical cloud intrusion. Triggers full triage, time-series prediction, Calico firewall drops, AWS IAM token revocations, and generates the Mermaid post-mortem report.
-2.  `[2]` **Brute-Force SSH attack (True Positive):** High-intensity brute-force triage, threshold analysis, blocklist mitigation.
-3.  `[3]` **Brute-Force SSH attack (False Positive):** Demonstrates the **Circuit Breaker** tripping immediately to save API quotas upon low-intensity authentication failures.
+### 4. Incident Scenarios
+When the NOC Console starts, select from the three available evaluation scenarios:
+1.  `[1]` **Kubernetes Credential Exfiltration:** A critical cloud intrusion. Triggers triage, predictive performance analysis, Calico network blocking, AWS IAM token revocation, and generates the final markdown post-mortem report.
+2.  `[2]` **SSH Brute-Force Attack (True Positive):** Triage analysis of malicious login attempts, time-series forecasting, and automated blocklist mitigation.
+3.  `[3]` **SSH Brute-Force Attack (False Positive):** Demonstrates the **Quota Circuit Breaker** tripping early in the pipeline to conserve LLM tokens and API resources upon verifying a low-risk pattern.
 
 ---
 
@@ -107,4 +108,4 @@ To connect Aegis-Mind to a live production Splunk instance:
 ---
 
 ## 📋 Open Source Licensing
-Aegis-Mind is distributed under the open-source **MIT License**. Check [LICENSE](LICENSE) for full details.
+Aegis-Mind is distributed under the open-source **MIT License**. See [LICENSE](LICENSE) for full details.

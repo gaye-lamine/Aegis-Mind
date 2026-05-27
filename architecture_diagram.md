@@ -7,75 +7,76 @@ This document presents the detailed architectural blueprint of **Aegis-Mind — 
 ## 🏗️ System Architecture
 
 ```text
-[ Infrastructure Télémétrie ]
+[ Infrastructure Telemetry ]
              │
-             ▼ (Ingestion continue)
+             ▼ (Continuous Ingestion)
 ┌───────────────────────────────────────────────┐
 │              Splunk Enterprise                │◄────────┐
-│             (Moteur de Recherche)             │         │
+│               (Search Engine)                 │         │
+│                                               │         │
 └───────────────────────┬───────────────────────┘         │
                         │                                 │
-     Déclenchement      │ (Token Auth)                    │ Requêtes SPL /
-    AI Custom Alert     ▼                                 │ Tool-Calling
+     AI Custom Alert    │ (Token Auth)                    │ SPL Queries /
+     Trigger            ▼                                 │ Tool-Calling
 ┌───────────────────────────────────────────────┐         │ (Splunk MCP Server)
 │             Aegis-Mind Gateway                │         │
 └───────────────────────┬───────────────────────┘         │
                         │                                 │
-                        ▼ (Orchestration des Tâches)      │
+                        ▼ (Task Orchestration)            │
 ┌─────────────────────────────────────────────────────────┼────────┐
 │                     AEGIS-MIND CORE                     │        │
 │                                                         │        │
 │    ┌─────────────────────────────────────────────┐      │        │
-│    │  🕵️♂️ Agent d'Investigation (Triage)         ├──────►│        │
-│    │  Modèle : Foundation-Sec-1.1-8B-Instruct     │      │        │
+│    │  🕵️‍♂️ Triage Agent                            ├──────►│        │
+│    │  Model: Foundation-Sec-1.1-8B-Instruct      │      │        │
 │    └──────────────────────┬──────────────────────┘      │        │
 │                           │                             │        │
 │    ┌──────────────────────▼──────────────────────┐      │        │
-│    │  📊 Agent de Corrélation Temporelle         ├──────►│        │
-│    │  Modèle : Cisco Deep Time Series Model      │      │        │
+│    │  📊 Time-Series Agent                       ├──────►│        │
+│    │  Model: Cisco Deep Time Series Model        │      │        │
 │    └──────────────────────┬──────────────────────┘      │        │
 │                           │                             │        │
 │    ┌──────────────────────▼──────────────────────┐      │        │
-│    │  ⚡ Agent d'Auto-Remédiation (Playbook)      ├──────┘        │
-│    │  Modèle : gpt-oss-120b                      │               │
+│    │  ⚡ Remediation Agent                       ├──────┘        │
+│    │  Model: gpt-oss-120b                        │               │
 │    └─────────────────────────────────────────────┘               │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🔄 Flux d'Exécution & Données (Data Flow)
+## 🔄 Execution & Data Flow
 
-### Étape 1 : Détection & Déclenchement (AI Custom Alert)
-*   **Source :** Les logs d'infrastructure (Kubernetes, AWS, firewall, base de données) sont centralisés dans **Splunk**.
-*   **Mécanisme :** Une alerte personnalisée d'intelligence artificielle (**AI Custom Alert**) surveille les anomalies de sécurité ou opérationnelles.
-*   **Action :** Dès qu'une anomalie critique est détectée, Splunk envoie une alerte HTTP contenant les métadonnées de l'incident à la passerelle **Aegis-Mind Gateway**.
+### Step 1: Detection & Triggering (AI Custom Alert)
+*   **Telemetry Ingestion:** Infrastructure logs (Kubernetes auditing logs, AWS CloudTrail, system logs, firewalls, and database events) are continuously ingested and indexed inside **Splunk Enterprise**.
+*   **Trigger Mechanism:** A custom automated alert query monitors the incoming data stream for indicators of compromise (IoCs) or operational anomalies.
+*   **Action:** When a high-severity security incident is detected, the Splunk daemon executes the custom alert action, transmitting the incident metadata payload securely to the **Aegis-Mind Gateway**.
 
-### Étape 2 : Triage & Analyse Cyber (Triage Agent)
-*   **Orchestrateur :** L'agent d'investigation se réveille sous l'égide du **Google Antigravity SDK**.
-*   **Modèle Utilisé :** `Foundation-Sec-1.1-8B-Instruct`.
-*   **Interactions :**
-    *   L'agent se connecte de manière sécurisée au **Splunk MCP Server** en utilisant l'authentification par jeton (*Token Authentication*).
-    *   Il utilise le **Splunk AI Assistant** pour formuler dynamiquement des requêtes SPL adaptées au contexte.
-    *   Il extrait les logs environnants des 2 dernières heures concernant l'adresse IP, le conteneur ou l'utilisateur suspect pour cartographier le vecteur d'attaque.
-    *   **Circuit Breaker :** Si l'analyse révèle un faux positif évident, l'agent coupe immédiatement le flux pour économiser les quotas d'API Splunk.
+### Step 2: Cyber Triage & Forensic Analysis (Triage Agent)
+*   **Orchestration:** The triage workflow is initialized under the control of the **Google Antigravity SDK** orchestrator.
+*   **Assigned Model:** `Foundation-Sec-1.1-8B-Instruct`.
+*   **System Interactions:**
+    *   The agent connects to the local **Splunk MCP Server** using secure bearer Token Authentication.
+    *   It communicates via natural language queries, which the MCP client translates into syntactically valid SPL queries.
+    *   It extracts raw audit logs surrounding the suspicious entities (e.g., target user, container, source IP) from the past 2 hours to reconstruct the attack timeline.
+    *   **Quota Circuit Breaker:** If the Triage Agent determines with high confidence that the alert is a False Positive, the circuit breaker immediately trips, halting downstream processing to conserve API tokens and computing resources.
 
-### Étape 3 : Corrélation Temporelle & Prévision d'Impact (Time-Series Agent)
-*   **Mission :** Comprendre l'impact global sur la production.
-*   **Modèle Utilisé :** `Cisco Deep Time Series Model`.
-*   **Interactions :**
-    *   L'agent extrait les indicateurs de performance clés (KPI) de l'infrastructure via le serveur MCP.
-    *   Il compare les métriques actuelles avec les baselines historiques de Splunk.
-    *   Il prédit l'évolution des métriques critiques à court terme (t + 15 min, t + 1 h) pour évaluer si l'incident va paralyser les services de production.
+### Step 3: Time-Series Forecasting & Operational Impact (Time-Series Agent)
+*   **Assigned Mission:** Evaluate current system baselines and assess secondary production degradation risks.
+*   **Assigned Model:** `Cisco Deep Time Series Model`.
+*   **System Interactions:**
+    *   The agent queries physical infrastructure performance counters (e.g., network throughput, queue latency, memory usage) via the Splunk MCP Server.
+    *   It compares the active workload signatures against historical baseline statistics.
+    *   It runs a forecasting algorithm to predict operational metrics at $t+15\text{m}$ and $t+1\text{h}$, automatically elevating the response level if severe degradation or service disruption is imminent.
 
-### Étape 4 : Conception du Playbook & Auto-Remédiation (Remediation Agent)
-*   **Mission :** Générer, valider et exécuter le plan de secours.
-*   **Modèle Utilisé :** `gpt-oss-120b` (ou équivalent LLM de remédiation).
-*   **Interactions :**
-    *   Sur la base des rapports d'incident et d'impact, l'agent élabore un script de remédiation cyber précis (par exemple, mise à jour des règles du pare-feu, révocation de jeton IAM compromise, redémarrage du pod Kubernetes).
-    *   Le playbook est exécuté via l'infrastructure sécurisée.
-    *   Une fois la correction appliquée, l'agent ré-interroge Splunk via le serveur MCP pour valider le retour à la normale de la production.
+### Step 4: Playbook Synthesis & Automated Mitigation (Remediation Agent)
+*   **Assigned Mission:** Formulate, execute, and verify targeted remediation actions.
+*   **Assigned Model:** `gpt-oss-120b`.
+*   **System Interactions:**
+    *   Synthesizing findings from the Triage (IoCs) and Time-Series (severity metrics) stages, the agent generates a precise, actionable remediation playbook (e.g., Calico network blocking rules, AWS IAM policy revocations, or Kubernetes pod restarts).
+    *   It triggers the execution of the playbook in a secure, audited environment.
+    *   Post-execution, the agent queries the Splunk MCP Server to verify that system metrics have returned to nominal ranges, confirming full service restoration.
 
-### Étape 5 : Clôture & Rapport de Crise (NOC Terminal UI)
-*   **Visualisation :** Toutes les pensées de l'agent (*thoughts*), les requêtes SPL formulées, et les playbooks générés sont diffusés en direct sur l'interface **NOC Terminal**.
-*   **Livrable Final :** Le système enregistre automatiquement un rapport d'incident complet contenant un diagramme d'attaque au format **Mermaid.js** dans l'espace de travail.
+### Step 5: Incident Closure & Post-Mortem Compilation (NOC Console)
+*   **Visualization:** Throughout the lifecycle, the agent thoughts, generated SPL queries, metrics, and playbooks are displayed in real-time on the terminal-based **NOC Console**.
+*   **Deliverables:** Upon resolution, the gateway automatically compiles a comprehensive incident post-mortem markdown report (`post_mortem_report.md`), including calculated MTTR, financial cost savings, and a dynamic **Mermaid.js sequence diagram** tracing the multi-agent orchestration lifecycle.
