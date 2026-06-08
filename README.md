@@ -71,7 +71,9 @@ For detailed data flow documentation, see [architecture_diagram.md](architecture
 Aegis-Mind features a high-fidelity simulation engine pre-loaded with representative incident datasets. Evaluators can execute the complete agentic incident response loop locally with **zero external dependencies** and **no prior API configuration**.
 
 ### 1. Prerequisites
-Ensure you have **Python 3.8+** installed.
+Ensure you have **Python 3.8+** installed. The simulation engine uses **only the Python standard library** — no `pip install` required.
+
+> See [`requirements.txt`](requirements.txt) for production dependency details.
 
 ### 2. Installation
 Clone the repository and navigate to the project directory:

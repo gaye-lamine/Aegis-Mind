@@ -1,0 +1,13 @@
+# Aegis-Mind: Autonomous Multi-Agent NOC for Incident Response
+# ============================================================
+#
+# Core Dependencies:
+#   Python 3.8+ (standard library only for the simulation engine)
+#
+# The simulation engine (src/main.py) uses ONLY Python standard library
+# modules and requires NO external pip packages to run.
+#
+# For production Splunk MCP Server integration, the following are required:
+# requests>=2.31.0        # HTTP client for Splunk REST API bridge
+# aiohttp>=3.9.0          # Async HTTP for MCP Server communication
+# voyageai>=0.3.0         # Voyage AI reranking (RAG pipeline)
